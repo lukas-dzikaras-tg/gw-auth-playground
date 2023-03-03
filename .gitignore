@@ -4,4 +4,7 @@ dist/
 .env
 .serverless/
 .build/
+.idea/
+.DS_Store
+
 
