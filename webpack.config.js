@@ -1,27 +1,25 @@
-const path = require('path')
+const slsw = require("serverless-webpack");
 
 module.exports = {
-  entry: './src/index.ts',
-  output: {
-    filename: 'index.js',
-    path: path.join(__dirname, 'dist'),
-  },
   devtool: 'cheap-module-source-map',
   mode: 'development',
+  target: 'node',
   resolve: {
     extensions: ['.ts', '.tsx', '.js'],
     fallback: {},
   },
+  entry: slsw.lib.entries,
   module: {
     rules: [
       {
-        test: /\.tsx?$/,
-        loader: 'ts-loader',
-        options: {
-          // transpileOnly is useful to skip typescript checks occasionally:
-          // transpileOnly: true,
-        },
+        test: /\.ts$/i,
+        use: [
+          {
+            loader: 'ts-loader',
+          },
+        ],
       },
     ],
   },
-}
+  stats: 'minimal',
+};
