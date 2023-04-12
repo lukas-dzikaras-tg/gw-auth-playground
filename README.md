@@ -1,5 +1,10 @@
 # The OAuth Proxy component for the AWS Gateway
 
+
+serverless invoke local --function authorizer --data '{"JWT_TOKEN_VALUE"}'
+
+serverless deploy
+
 [![Quality](https://img.shields.io/badge/quality-demo-red)](https://curity.io/resources/code-examples/status/) 
 [![Availability](https://img.shields.io/badge/availability-source-blue)](https://curity.io/resources/code-examples/status/)
 
@@ -59,20 +64,5 @@ You can also manually deploy the authorizer and configure your APIs. Follow thes
 
 The authorizer uses the following environment variables for configuration. These should be set in the `.env` file.
 
-- `TRUSTED_WEB_ORIGINS` - a comma-separated list of trusted web origins. Requests coming from other origins will be rejected by the authorizer.
-- `COOKIE_NAME_PREFIX` - the name prefix of the cookies used by the authorizer.
-- `ENCRYPTION_KEY` - a 256-bit encryption key represented as a 64-character hex string. The key is used to decrypt cookie values. You can use the following command to generate a secure key: `openssl rand 32 | xxd -p -c 64`
-- `USE_PHANTOM_TOKEN` - a boolean informing the worker authorizer whether a phantom token is used. If true, then the authorizer will perform token introspection before calling the API.
-- `INTROSPECTION_URL` - the URL of the introspection endpoint of the Authorization Server.
-- `CLIENT_ID` - the ID of the client used to perform the introspection call.
-- `CLIENT_SECRET` - the secret of the client used to perform the introspection call.
-- `ALLOW_TOKEN` - if set to true then requests with the `Authorization` header already set are passed to the API without any modifications. Defaults to `true`.
+- `JWKS_URI` - the URL of the JWKS endpoint of the Authorization Server.
 
-The following settings are used only by the serverless framework. The `.env-template` file shows the default values for these variables.
-
-- `ALLOW_METHODS` - A comma-separated list of methods that should be returned in the `Access-Control-Allow-Methods` CORS header.
-- `ALLOW_HEADERS` - A comma-separated list of headers returned in the `Access-Control-Allow-Headers` CORS header. By default, this
-  variable is empty, the value shown in the template file shows a default value used by AWS Gateway. When this value is empty,
-  then the gateway will use the request's `Access-Control-Request-Headers` header as the value for allowed headers.
-- `EXPOSE_HEADERS` - A comma-separated list of headers returned in the `Access-Control-Expose-Headers` CORS header.
-- `CORS_MAX_AGE` - The value returned in the `Access-Control-Max-Age` CORS header.

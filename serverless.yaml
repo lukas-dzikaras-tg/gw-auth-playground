@@ -19,7 +19,9 @@ functions:
     name: ${sls:stage}-gateway-serverless-authorizer
     handler: src/index.handler
     runtime: nodejs16.x
+    environment:
+      JWKS_URI: 'https://my.transfergo.com/api/user/auth/jwks'
 
 package:
   patterns:
-    - ".env"
+    - ".env_example"

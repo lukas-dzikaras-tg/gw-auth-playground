@@ -1,48 +1,63 @@
-import {APIGatewayTokenAuthorizerEvent} from "aws-lambda"
-import {handleRequest} from "./handler"
-import {mockTokenEvent} from "./mock";
-// import Configuration from "./configuration"
-import dotenv from "dotenv"
+import {APIGatewayTokenAuthorizerEvent, APIGatewayAuthorizerResult} from 'aws-lambda';
+import JwksRsa, {SigningKey} from "jwks-rsa";
+import {PolicyDocument} from "aws-lambda/trigger/api-gateway-authorizer";
+import {JwtPayload, VerifyOptions} from "jsonwebtoken";
 
-dotenv.config()
+const jwksClient = require('jwks-rsa');
+const jwt = require('jsonwebtoken');
+const util = require('util');
 
-
-// const event:APIGatewayRequestAuthorizerEvent = {
-//     headers: undefined,
-//     httpMethod: "",
-//     methodArn: "",
-//     multiValueHeaders: undefined,
-//     multiValueQueryStringParameters: undefined,
-//     path: "",
-//     pathParameters: undefined,
-//     queryStringParameters: undefined,
-//     requestContext: undefined,
-//     resource: "",
-//     stageVariables: undefined,
-//     type: "REQUEST"
-// }
-
-
-//eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjM1NDE4ZjE5LWMwYjktNDc3YS1hMWE2LTIxYTAwNjFhMTk1MiJ9.eyJpc3MiOiJUcmFuc2ZlckdvIiwic3ViIjoiNTU1MzIyMSIsInVzZXJfaWQiOjU1NTMyMjEsImlhdCI6MTY3Nzg0NjUxNywibmJmIjoxNjc3ODQ2NTE3LCJleHAiOjE2Nzc4NTAxMTd9.nI5_hiIJxqBUDqh_M5DaJkaJNpZVnW4olMHb2EXOoTlhg9nPnPUYTZkV-v8SfAcWYRUUSomM3qkjdnTpZWco-Oi8xnloy0vlHD_K5-EIyoJ2Ejle3-SZ2-JXkyQ9ZH9rVFbrUfxr_j35OFHjYg7SfPKa4mqkxnWxHYMTTowR4rV19hqfMR1Q_1dOOcqygK5f2rI3prs2meFs6LhtUWA0Apg8UwaOHWUfgLsd-OaR6zvoqCeauD8TxeXg-AbdT7hyWiSBoy7RjKjhLs5f4Xy66m6kwEQN80h1vFWqGN3g8DNPjRuYvpf_vOnH6hws7SJd9iMct9Y-aHjKMqSqpbaYmw";
-
-
-exports.handler = async (event: APIGatewayTokenAuthorizerEvent) => {
-    // if (event.authorizationToken === null) {
-    // //     event = mockTokenEvent;
-    // // }
-    // console.log({'e': "e", event, "o": typeof event, 'eee': event === null})
-    // // event ??= mockTokenEvent;
-    // return await handleRequest( mockTokenEvent);//event, getConfiguration())
-    return await handleRequest(event);//event, getConfiguration())
+const jwtOptions = <VerifyOptions>{
 };
 
-// const getConfiguration = () => new Configuration(
-//     process.env.TRUSTED_WEB_ORIGINS || "",
-//     process.env.COOKIE_NAME_PREFIX || "",
-//     process.env.ENCRYPTION_KEY || "",
-//     process.env.USE_PHANTOM_TOKEN === "true",
-//     process.env.INTROSPECTION_URL || "",
-//     process.env.CLIENT_ID || "",
-//     process.env.CLIENT_SECRET || "",
-//     process.env.ALLOW_TOKEN === "false"
-// )
+const client = jwksClient(<JwksRsa.Options>{
+    cache: true,
+    jwksUri: process.env.JWKS_URI
+});
+
+
+export const handler = (event: APIGatewayTokenAuthorizerEvent, context: any, callback: (err: Error | null, result?: APIGatewayAuthorizerResult) => void) => {
+    const authToken = parseToken(event.authorizationToken);
+
+    const decoded = authToken && jwt.decode(authToken, {complete: true});
+    if (!decoded) {
+        console.error(`Unable to parse authorization token. Token: ${authToken}`);
+        callback(new Error("Unauthorized"));
+    }
+
+    const getSigningKey = util.promisify(client.getSigningKey);
+
+    return getSigningKey(decoded.header.kid)
+        .then((key: SigningKey) => {
+            const signingKey = key.getPublicKey();
+            return jwt.verify(authToken, signingKey, jwtOptions);
+        })
+        .then((decoded: JwtPayload) => (<APIGatewayAuthorizerResult>{
+            principalId: decoded.sub,
+            policyDocument: getPolicyDocument('Allow', event.methodArn),
+        }))
+        .catch((error: any) => {
+                console.error(`Invalid token. Error: ${error.message}`);
+                callback(new Error("Unauthorized"));
+            }
+        );
+};
+
+const parseToken = (value:string): string|null => {
+    const match = value.match(/^Bearer (.*)$/);
+    if (!match || match.length < 2) {
+        return null
+    }
+    return match[1];
+}
+
+const getPolicyDocument = (effect: string, resource: string): PolicyDocument => {
+    return {
+        Version: '2012-10-17', // default version
+        Statement: [{
+            Action: 'execute-api:Invoke', // default action
+            Effect: effect,
+            Resource: resource,
+        }]
+    };
+}
